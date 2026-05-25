@@ -101,6 +101,13 @@ router.post('/prune-dead', async (_req, res) => {
   );
   await query(`DELETE FROM edges WHERE from_agent = ANY($1) OR to_agent = ANY($1)`, [ids]);
   await query(`DELETE FROM agents WHERE id = ANY($1)`, [ids]);
+  // Critical: also clear edge suppressions for these ids, otherwise re-
+  // registration silently skips recreating the agent-declared edges (the
+  // `if (suppressed) continue;` branch in /agents/register).
+  await query(
+    `DELETE FROM edge_suppressions WHERE from_agent = ANY($1) OR to_agent = ANY($1)`,
+    [ids]
+  );
   for (const e of edges) emit('edge:removed', e.id);
   for (const n of stale) emit('node:removed', n.id);
   res.json({ ok: true, removed: { nodes: stale.length, edges: edges.length } });

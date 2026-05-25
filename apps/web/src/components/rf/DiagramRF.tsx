@@ -13,6 +13,7 @@ import { PipeflowNode, type PipeflowNodeType } from './PipeflowNode';
 import { PipeflowEdge, type PipeflowEdgeType } from './PipeflowEdge';
 import { ParticleLayer } from './ParticleLayer';
 import { emitNodeMove } from '../../socket';
+import { authHeaders } from '../../auth';
 import { useEdgeRates } from '../../hooks/useEdgeRates';
 
 const nodeTypes = { pipeflow: PipeflowNode };
@@ -126,9 +127,14 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
     if (!conn.source || !conn.target || conn.source === conn.target) return;
     fetch(`${import.meta.env.VITE_API_URL ?? '/api'}/topology/edges`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ from: conn.source, to: conn.target, dashed: false }),
-    }).catch(() => { /* ignore */ });
+    }).then(async (r) => {
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        console.error('connect edge failed:', r.status, j);
+      }
+    }).catch((e) => console.error('connect edge error:', e));
   }, []);
 
   // Auto-fit when first nodes arrive.
