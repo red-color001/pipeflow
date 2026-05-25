@@ -147,7 +147,7 @@ prompt token    "Agent token"
 prompt agent_id "Agent ID (unique slug)"
 prompt label    "Agent display label"        "$agent_id"
 prompt kind     "Agent kind (user|ext|fe|be|svc|wk|kf|db|obs)" "svc"
-prompt color    "Agent color"                "blue"
+prompt color    "Agent color (indigo|teal|amber|red|violet|orange|green|cyan|pink|purple|yorange|neutral)" "indigo"
 
 [[ -n "$backend"  ]] || die "backend required"
 [[ -n "$token"    ]] || die "token required"
@@ -262,7 +262,7 @@ healthcheck() {
   [[ -n "$skip_healthcheck" ]] && { log "healthcheck skipped"; return; }
   command -v curl >/dev/null 2>&1 || { warn "curl not found, skipping healthcheck"; return; }
 
-  local url="${backend%/}/api/topology"
+  local url="${backend%/}/topology"
   log "waiting up to ${healthcheck_timeout}s for '$agent_id' to appear at $url"
 
   local deadline=$(( $(date +%s) + healthcheck_timeout ))

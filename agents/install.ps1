@@ -21,7 +21,8 @@ param(
   [string]$Label,
   [ValidateSet('user','ext','fe','be','svc','wk','kf','db','obs')]
   [string]$Kind = 'svc',
-  [string]$Color = 'blue',
+  [ValidateSet('indigo','teal','amber','red','violet','orange','green','cyan','pink','purple','yorange','neutral')]
+  [string]$Color = 'indigo',
   [string]$Targets,
   [string]$Flows,
   [string]$RepoUrl    = 'https://github.com/andif/pipline-data-flow.git',
@@ -204,7 +205,7 @@ switch ($Method) {
 # ─── Post-install health check ───────────────────────────────────────────────
 function HealthCheck {
   if ($NoHealthcheck) { Log "healthcheck skipped"; return }
-  $url = "$($Backend.TrimEnd('/'))/api/topology"
+  $url = "$($Backend.TrimEnd('/'))/topology"
   Log "waiting up to ${HealthcheckTimeout}s for '$Id' to appear at $url"
   $deadline = (Get-Date).AddSeconds($HealthcheckTimeout)
   while ((Get-Date) -lt $deadline) {

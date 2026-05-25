@@ -63,7 +63,7 @@ if ($Deregister) {
   if ($Backend -and $Token) {
     Log "deregistering '$Id' at backend"
     try {
-      Invoke-RestMethod -Method Post -Uri "$($Backend.TrimEnd('/'))/api/agents/$Id/deregister" `
+      Invoke-RestMethod -Method Post -Uri "$($Backend.TrimEnd('/'))/agents/$Id/deregister" `
         -Headers @{ Authorization = "Bearer $Token" } -TimeoutSec 5
     } catch { Warn "deregister request failed: $_" }
   } else {

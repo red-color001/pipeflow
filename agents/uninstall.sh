@@ -79,7 +79,7 @@ if [[ -n "$do_deregister" ]]; then
     log "deregistering '$agent_id' at backend"
     curl -fsS -X POST \
       -H "Authorization: Bearer $token" \
-      "${backend%/}/api/agents/${agent_id}/deregister" \
+      "${backend%/}/agents/${agent_id}/deregister" \
       || warn "deregister request failed (backend unreachable?)"
   else
     warn "skipping deregister: backend/token not provided and not in env file"
