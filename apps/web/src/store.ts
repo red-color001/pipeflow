@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { NodeDTO, EdgeDTO, ClusterDTO, AgentStatus, FlowEvent, NodeMetric } from '@pipeflow/shared';
+import type { NodeDTO, EdgeDTO, ClusterDTO, AgentStatus, FlowEvent, NodeMetric, NodeStats } from '@pipeflow/shared';
 
 // Tiny pub-sub for live flow events. Diagram subscribes once and uses the
 // burst to spawn a particle on the matching edge. We keep it out of the
@@ -17,6 +17,7 @@ interface State {
   edges: Map<number, EdgeDTO>;
   clusters: ClusterDTO[];
   metrics: Map<string, NodeMetric>;
+  stats: Map<string, NodeStats>;
 
   setAll: (t: { nodes: NodeDTO[]; edges: EdgeDTO[]; clusters: ClusterDTO[] }) => void;
   upsertNode: (n: NodeDTO) => void;
@@ -25,6 +26,7 @@ interface State {
   removeEdge: (id: number) => void;
   setStatus: (id: string, status: AgentStatus) => void;
   setMetric: (m: NodeMetric) => void;
+  setStats: (s: NodeStats) => void;
 }
 
 export const useStore = create<State>((set) => ({
@@ -32,6 +34,7 @@ export const useStore = create<State>((set) => ({
   edges: new Map(),
   clusters: [],
   metrics: new Map(),
+  stats: new Map(),
 
   setAll: ({ nodes, edges, clusters }) =>
     set({
@@ -39,6 +42,7 @@ export const useStore = create<State>((set) => ({
       edges: new Map(edges.map((e) => [e.id, e])),
       clusters,
       metrics: new Map(),
+      stats: new Map(),
     }),
 
   upsertNode: (n) =>
@@ -76,5 +80,11 @@ export const useStore = create<State>((set) => ({
     set((s) => {
       const m = new Map(s.metrics); m.set(mm.id, mm);
       return { metrics: m };
+    }),
+
+  setStats: (ss) =>
+    set((s) => {
+      const m = new Map(s.stats); m.set(ss.id, ss);
+      return { stats: m };
     }),
 }));

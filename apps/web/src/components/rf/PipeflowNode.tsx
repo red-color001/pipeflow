@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { NodeDTO } from '@pipeflow/shared';
 import { COLORS } from '../../colors';
 import { emitNodeDelete } from '../../socket';
+import { useStore } from '../../store';
 
 export type PipeflowNodeData = NodeDTO & Record<string, unknown>;
 export type PipeflowNodeType = Node<PipeflowNodeData, 'pipeflow'>;
@@ -16,6 +17,9 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
   const stale = n.status === 'stale';
   const live = n.status === 'live' && !n.stub;
   const [hover, setHover] = useState(false);
+  const stats = useStore((s) => s.stats.get(n.id));
+  const showStats = !n.stub && stats !== undefined &&
+    (stats.cpu_pct !== undefined || stats.mem_pct !== undefined);
 
   const onDelete = (ev: React.MouseEvent) => {
     ev.stopPropagation();
@@ -133,9 +137,52 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
         </div>
       )}
 
+      {/* Resource bars (CPU + MEM) — bottom of card, only when agent reports stats */}
+      {showStats && (
+        <div
+          style={{
+            position: 'absolute', left: 6, right: 6, bottom: 4,
+            display: 'flex', flexDirection: 'column', gap: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          <StatBar label="C" pct={stats!.cpu_pct} />
+          <StatBar label="M" pct={stats!.mem_pct} />
+        </div>
+      )}
+
       {/* Handles (sockets) — strict directional: left = input, right = output. */}
       <Handle id="in"  type="target" position={Position.Left}  style={handleStyle(color)} />
       <Handle id="out" type="source" position={Position.Right} style={handleStyle(color)} />
+    </div>
+  );
+}
+
+function StatBar({ label, pct }: { label: string; pct?: number }) {
+  if (pct === undefined) return null;
+  const clamped = Math.max(0, Math.min(100, pct));
+  // Color ramp: green → amber → red as pct rises.
+  const fill = clamped < 60 ? '#34d399' : clamped < 85 ? '#fbbf24' : '#f87171';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <span style={{
+        fontSize: 8, color: '#94a3b8', width: 8, textAlign: 'center',
+        letterSpacing: '0.04em',
+      }}>{label}</span>
+      <div style={{
+        flex: 1, height: 4, borderRadius: 2,
+        background: 'rgba(148,163,184,0.18)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          width: `${clamped}%`, height: '100%', background: fill,
+          transition: 'width 0.35s ease-out, background 0.35s',
+        }} />
+      </div>
+      <span style={{
+        fontSize: 8, color: '#cbd5e1', width: 22, textAlign: 'right',
+        fontVariantNumeric: 'tabular-nums',
+      }}>{clamped.toFixed(0)}%</span>
     </div>
   );
 }

@@ -48,6 +48,9 @@ class Agent:
     version: str | None = None
     targets: Iterable[dict[str, Any]] = field(default_factory=list)
     heartbeat_interval_s: float = _HEARTBEAT_INTERVAL_S
+    # When True, the heartbeat body includes CPU + memory stats (psutil).
+    # Falls back silently if psutil isn't importable.
+    report_stats: bool = True
 
     _stop: threading.Event = field(default_factory=threading.Event, init=False, repr=False)
     _thread: threading.Thread | None = field(default=None, init=False, repr=False)
@@ -167,10 +170,38 @@ class Agent:
         _r.Session.send = wrapped         # type: ignore[assignment]
         log.info("pipeflow: requests auto-instrument active (%d hosts mapped)", len(host_map))
 
+    def _collect_stats(self) -> dict[str, Any]:
+        """Snapshot host CPU + memory via psutil. Returns {} if unavailable."""
+        if not self.report_stats:
+            return {}
+        try:
+            import psutil  # type: ignore
+        except Exception:
+            return {}
+        out: dict[str, Any] = {}
+        try:
+            # Non-blocking CPU sample (delta since last call). First call after
+            # process start returns 0.0 which is harmless.
+            cpu = psutil.cpu_percent(interval=None)
+            if cpu is not None:
+                out["cpu_pct"] = round(float(cpu), 2)
+        except Exception as e:
+            log.debug("pipeflow cpu_percent error: %s", e)
+        try:
+            vm = psutil.virtual_memory()
+            out["mem_pct"] = round(float(vm.percent), 2)
+            out["mem_used_bytes"] = int(vm.used)
+            out["mem_total_bytes"] = int(vm.total)
+        except Exception as e:
+            log.debug("pipeflow virtual_memory error: %s", e)
+        return out
+
     def _heartbeat_once(self) -> None:
         try:
+            body = self._collect_stats()
             requests.post(
                 f"{self.backend.rstrip('/')}/agents/{self.id}/heartbeat",
+                json=body if body else {},
                 headers=self._headers(),
                 timeout=5,
             )

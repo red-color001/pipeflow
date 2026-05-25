@@ -32,6 +32,7 @@ export function getSocket(): DiagramSocket {
   socket.on('agent:status', ({ id, status }) => useStore.getState().setStatus(id, status));
   socket.on('flow:event', (e) => emitFlow(e));
   socket.on('node:metric', (m) => useStore.getState().setMetric(m));
+  socket.on('node:stats',  (s) => useStore.getState().setStats(s));
   return socket;
 }
 

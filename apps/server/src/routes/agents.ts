@@ -125,6 +125,15 @@ router.post('/register', async (req, res) => {
 });
 
 // ── POST /agents/:id/heartbeat ────────────────────────────────────────
+// Optional body: { cpu_pct?, mem_pct?, mem_used_bytes?, mem_total_bytes? }.
+// Empty body keeps backward compat with older agents that send no body.
+const HeartbeatStatsSchema = z.object({
+  cpu_pct:         z.number().min(0).max(100).optional(),
+  mem_pct:         z.number().min(0).max(100).optional(),
+  mem_used_bytes:  z.number().int().min(0).optional(),
+  mem_total_bytes: z.number().int().min(0).optional(),
+}).partial();
+
 router.post('/:id/heartbeat', async (req, res) => {
   if (!authOK(req)) return res.status(401).json({ error: 'unauthorized' });
   const id = req.params.id;
@@ -133,6 +142,40 @@ router.post('/:id/heartbeat', async (req, res) => {
     [id]
   );
   if (result.length === 0) return res.status(404).json({ error: 'unknown agent' });
+
+  // Best-effort: persist + broadcast resource stats if the agent sent any.
+  if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+    const parsed = HeartbeatStatsSchema.safeParse(req.body);
+    if (parsed.success) {
+      const s = parsed.data;
+      const hasAny =
+        s.cpu_pct !== undefined ||
+        s.mem_pct !== undefined ||
+        s.mem_used_bytes !== undefined ||
+        s.mem_total_bytes !== undefined;
+      if (hasAny) {
+        await query(
+          `UPDATE agents
+              SET cpu_pct         = COALESCE($2, cpu_pct),
+                  mem_pct         = COALESCE($3, mem_pct),
+                  mem_used_bytes  = COALESCE($4, mem_used_bytes),
+                  mem_total_bytes = COALESCE($5, mem_total_bytes),
+                  stats_at        = now()
+            WHERE id = $1`,
+          [id, s.cpu_pct ?? null, s.mem_pct ?? null, s.mem_used_bytes ?? null, s.mem_total_bytes ?? null]
+        );
+        emit('node:stats', {
+          id,
+          cpu_pct: s.cpu_pct,
+          mem_pct: s.mem_pct,
+          mem_used_bytes: s.mem_used_bytes,
+          mem_total_bytes: s.mem_total_bytes,
+          at: Date.now(),
+        });
+      }
+    }
+  }
+
   res.status(204).end();
 });
 

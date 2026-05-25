@@ -88,6 +88,17 @@ export interface NodeMetric {
   p95_latency_ms?: number;
 }
 
+// Host resource stats pushed by the agent on each heartbeat. Optional —
+// agents without psutil (or sandboxed environments) simply omit fields.
+export interface NodeStats {
+  id: string;
+  cpu_pct?: number;          // 0–100, normalised across all cores
+  mem_pct?: number;          // 0–100
+  mem_used_bytes?: number;
+  mem_total_bytes?: number;
+  at?: number;               // unix ms, server-stamped
+}
+
 export interface ServerToClientEvents {
   'node:added':   (n: NodeDTO) => void;
   'node:updated': (n: NodeDTO) => void;
@@ -97,6 +108,7 @@ export interface ServerToClientEvents {
   'agent:status': (p: { id: string; status: AgentStatus }) => void;
   'flow:event':   (e: FlowEvent) => void;
   'node:metric':  (m: NodeMetric) => void;
+  'node:stats':   (s: NodeStats) => void;
 }
 
 export interface ClientToServerEvents {

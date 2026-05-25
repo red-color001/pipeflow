@@ -13,7 +13,7 @@
 from PyInstaller.utils.hooks import collect_all
 
 datas, binaries, hiddenimports = [], [], ['pipeflow_agent']
-for pkg in ('pipeflow_agent', 'requests'):
+for pkg in ('pipeflow_agent', 'requests', 'psutil'):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
