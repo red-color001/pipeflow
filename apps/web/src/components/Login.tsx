@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { apiLogin, setSession } from '../auth';
 
 export function Login() {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,10 +49,9 @@ export function Login() {
           />
         </label>
         {err && <div className="loginErr">{err}</div>}
-        <button className="loginBtn" type="submit" disabled={busy || !password}>
+        <button className="loginBtn" type="submit" disabled={busy || !username || !password}>
           {busy ? '…' : 'sign in'}
         </button>
-        <div className="loginHint">first run: <code>admin / admin</code></div>
       </form>
     </div>
   );
