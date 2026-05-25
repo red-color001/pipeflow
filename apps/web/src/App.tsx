@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DiagramRF } from './components/rf/DiagramRF';
-import { LayoutPresets } from './components/LayoutPresets';
 import { useStore } from './store';
 import { getSocket, fetchTopology } from './socket';
 import { COLORS } from './colors';
@@ -99,12 +98,8 @@ export function App() {
 
       <main className="stage">
         <DiagramRF running={running} particleSize="medium"/>
-        <LayoutPresets/>
         <PlaybackToggle running={running} setRunning={setRunning}/>
         {nodes.size === 0 && <EmptyState/>}
-        <div className="panhint">
-          <kbd>scroll</kbd>zoom <kbd>drag bg</kbd>pan <kbd>drag node</kbd>move <kbd>drag socket</kbd>edge <kbd>hover edge</kbd>×delete
-        </div>
       </main>
     </div>
   );

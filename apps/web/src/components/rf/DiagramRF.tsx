@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Panel,
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   type NodeChange, type EdgeChange, type Connection,
   useReactFlow, useViewport,
 } from '@xyflow/react';
@@ -13,7 +13,6 @@ import { PipeflowEdge, type PipeflowEdgeType } from './PipeflowEdge';
 import { ParticleLayer } from './ParticleLayer';
 import { emitNodeMove } from '../../socket';
 import { useEdgeRates } from '../../hooks/useEdgeRates';
-import { autoLayout, type LayoutDir } from '../../layout/autoLayout';
 
 const nodeTypes = { pipeflow: PipeflowNode };
 const edgeTypes = { pipeflow: PipeflowEdge };
@@ -140,22 +139,6 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 100);
   }, [rfNodes, fitView]);
 
-  const runAutoLayout = useCallback((dir: LayoutDir) => {
-    const s = useStore.getState();
-    const positions = autoLayout(
-      Array.from(s.nodes.values()),
-      Array.from(s.edges.values()),
-      dir,
-    );
-    for (const p of positions) {
-      const cur = s.nodes.get(p.id);
-      if (!cur) continue;
-      s.upsertNode({ ...cur, x: p.x, y: p.y });
-      emitNodeMove(p.id, p.x, p.y);
-    }
-    setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
-  }, [fitView]);
-
   return (
     <>
       <ReactFlow
@@ -183,13 +166,6 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
       >
         <Background gap={28} color="#1e293b" />
         <Controls showInteractive={false} />
-        <Panel position="top-right">
-          <div style={panelStyle}>
-            <span style={panelLabel}>Auto-layout</span>
-            <button style={btnStyle} onClick={() => runAutoLayout('LR')}>→ LR</button>
-            <button style={btnStyle} onClick={() => runAutoLayout('TB')}>↓ TB</button>
-          </div>
-        </Panel>
         <MiniMap
           nodeColor={(n) => {
             const d = (n.data as unknown as NodeDTO | undefined);
@@ -205,29 +181,6 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
     </>
   );
 }
-
-const panelStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 6,
-  background: 'rgba(11,18,32,0.85)',
-  border: '1px solid #1e293b',
-  borderRadius: 6,
-  padding: '4px 8px',
-  fontFamily: "'JetBrains Mono', monospace",
-};
-const panelLabel: React.CSSProperties = {
-  fontSize: 10, color: '#94a3b8', letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-};
-const btnStyle: React.CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #334155',
-  color: '#cbd5e1',
-  borderRadius: 4,
-  padding: '3px 8px',
-  fontSize: 11,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
 
 // ─── Bottleneck overlay ───────────────────────────────────────────────
 // Rendered as an absolutely-positioned layer inside React Flow's viewport.

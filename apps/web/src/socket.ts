@@ -39,3 +39,7 @@ export function emitNodeMove(id: string, x: number, y: number) {
 export function emitEdgeDelete(id: number) {
   getSocket().emit('edge:delete', id);
 }
+
+export function emitNodeDelete(id: string) {
+  getSocket().emit('node:delete', id);
+}

@@ -101,6 +101,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'edge:delete':    (id: number) => void;
+  'node:delete':    (id: string) => void;
   'node:move':      (p: { id: string; x: number; y: number }) => void;
   'topology:reset': () => void;
 }

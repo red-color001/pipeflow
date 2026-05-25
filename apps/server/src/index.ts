@@ -59,6 +59,17 @@ diagram.on('connection', (socket) => {
     diagram.emit('edge:removed', id);
   });
 
+  socket.on('node:delete', async (id) => {
+    const attached = await query<{ id: number }>(
+      `SELECT id FROM edges WHERE from_agent = $1 OR to_agent = $1`,
+      [id]
+    );
+    await query(`DELETE FROM edges WHERE from_agent = $1 OR to_agent = $1`, [id]);
+    await query(`DELETE FROM agents WHERE id = $1`, [id]);
+    for (const e of attached) diagram.emit('edge:removed', e.id);
+    diagram.emit('node:removed', id);
+  });
+
   socket.on('topology:reset', async () => {
     await query(`DELETE FROM edges`);
     await query(`DELETE FROM agents`);

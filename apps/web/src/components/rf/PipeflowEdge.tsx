@@ -1,7 +1,8 @@
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps, type Edge } from '@xyflow/react';
 import type { ColorKey } from '@pipeflow/shared';
 import { COLORS } from '../../colors';
+import { emitEdgeDelete } from '../../socket';
 
 export interface PipeflowEdgeData extends Record<string, unknown> {
   edgeId: number;
@@ -16,6 +17,15 @@ export type PipeflowEdgeType = Edge<PipeflowEdgeData, 'pipeflow'>;
 function PipeflowEdgeImpl(props: EdgeProps<PipeflowEdgeType>) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data } = props;
   const [hover, setHover] = useState(false);
+  const hoverOffT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const enterHover = () => {
+    if (hoverOffT.current) { clearTimeout(hoverOffT.current); hoverOffT.current = null; }
+    setHover(true);
+  };
+  const leaveHover = () => {
+    if (hoverOffT.current) clearTimeout(hoverOffT.current);
+    hoverOffT.current = setTimeout(() => setHover(false), 120);
+  };
 
   const [path, labelX, labelY] = getBezierPath({
     sourceX, sourceY, sourcePosition,
@@ -62,9 +72,38 @@ function PipeflowEdgeImpl(props: EdgeProps<PipeflowEdgeType>) {
         stroke="transparent"
         strokeWidth={18}
         style={{ cursor: 'pointer' }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
+        onMouseEnter={enterHover}
+        onMouseLeave={leaveHover}
       />
+      {hover && edgeId != null && (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              if (window.confirm('Hapus edge ini?')) emitEdgeDelete(edgeId);
+            }}
+            onMouseEnter={enterHover}
+            onMouseLeave={leaveHover}
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              width: 18, height: 18, borderRadius: '50%',
+              background: '#f87171',
+              border: '1.4px solid #0b1220',
+              color: '#0b1220',
+              fontSize: 12, fontWeight: 800, lineHeight: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', pointerEvents: 'all',
+              fontFamily: "'JetBrains Mono', monospace",
+              boxShadow: '0 0 8px rgba(248,113,113,0.7)',
+            }}
+            title="Delete edge"
+          >
+            ×
+          </div>
+        </EdgeLabelRenderer>
+      )}
       {showLabel && (
         <EdgeLabelRenderer>
           <div

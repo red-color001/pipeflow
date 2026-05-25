@@ -1,9 +1,9 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { NodeDTO } from '@pipeflow/shared';
 import { COLORS } from '../../colors';
+import { emitNodeDelete } from '../../socket';
 
-// React Flow requires node data to satisfy Record<string, unknown>.
 export type PipeflowNodeData = NodeDTO & Record<string, unknown>;
 export type PipeflowNodeType = Node<PipeflowNodeData, 'pipeflow'>;
 
@@ -15,10 +15,20 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
   const dim = n.status === 'dead' || n.stub;
   const stale = n.status === 'stale';
   const live = n.status === 'live' && !n.stub;
+  const [hover, setHover] = useState(false);
+
+  const onDelete = (ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    if (window.confirm(`Hapus node "${n.label}"?\nSemua edge yang terhubung akan ikut terhapus.`)) {
+      emitNodeDelete(n.id);
+    }
+  };
 
   return (
     <div
       data-pipeflow-node-id={n.id}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative',
         width: n.w,
@@ -42,8 +52,8 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
           pointerEvents: 'none',
         }}
       />
-      {/* Status indicator */}
-      {live && (
+      {/* Status indicator — hide on hover so delete button is unobstructed */}
+      {live && !hover && (
         <>
           <div
             style={{
@@ -64,7 +74,7 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
           />
         </>
       )}
-      {stale && (
+      {stale && !hover && (
         <div
           style={{
             position: 'absolute', top: 7, right: 7,
@@ -75,7 +85,7 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
           }}
         />
       )}
-      {n.stub && (
+      {n.stub && !hover && (
         <div
           style={{
             position: 'absolute', top: 4, right: 6,
@@ -99,26 +109,43 @@ function PipeflowNodeImpl({ data, selected }: NodeProps<PipeflowNodeType>) {
         {n.label}
       </div>
 
-      {/* Handles (sockets) — both source AND target on every side so users
-          can drag a connection from any side to any side. */}
-      <Handle id="l-s" type="source" position={Position.Left}   style={handleStyle(color, 'L')} />
-      <Handle id="l-t" type="target" position={Position.Left}   style={handleStyle(color, 'L', true)} />
-      <Handle id="r-s" type="source" position={Position.Right}  style={handleStyle(color, 'R')} />
-      <Handle id="r-t" type="target" position={Position.Right}  style={handleStyle(color, 'R', true)} />
-      <Handle id="t-s" type="source" position={Position.Top}    style={handleStyle(color, 'T')} />
-      <Handle id="t-t" type="target" position={Position.Top}    style={handleStyle(color, 'T', true)} />
-      <Handle id="b-s" type="source" position={Position.Bottom} style={handleStyle(color, 'B')} />
-      <Handle id="b-t" type="target" position={Position.Bottom} style={handleStyle(color, 'B', true)} />
+      {/* Delete button — hover only, inside top-right corner */}
+      {hover && (
+        <div
+          className="nodrag nopan"
+          onClick={onDelete}
+          onMouseDown={(ev) => ev.stopPropagation()}
+          title="Delete node"
+          style={{
+            position: 'absolute', top: 4, right: 4,
+            width: 18, height: 18, borderRadius: '50%',
+            background: '#f87171',
+            border: '1.4px solid #0b1220',
+            color: '#0b1220',
+            fontSize: 13, fontWeight: 800, lineHeight: '13px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', zIndex: 10,
+            boxShadow: '0 0 6px rgba(248,113,113,0.6)',
+            pointerEvents: 'all',
+          }}
+        >
+          ×
+        </div>
+      )}
+
+      {/* Handles (sockets) — strict directional: left = input, right = output. */}
+      <Handle id="in"  type="target" position={Position.Left}  style={handleStyle(color)} />
+      <Handle id="out" type="source" position={Position.Right} style={handleStyle(color)} />
     </div>
   );
 }
 
-function handleStyle(color: string, _side: 'L' | 'R' | 'T' | 'B', overlay = false): React.CSSProperties {
+function handleStyle(color: string): React.CSSProperties {
   return {
     width: 12, height: 12,
-    background: overlay ? 'transparent' : color,
+    background: color,
     border: `1.6px solid ${color}`,
-    opacity: overlay ? 0 : 0.9,
+    opacity: 0.9,
   };
 }
 
