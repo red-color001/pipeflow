@@ -91,8 +91,13 @@ export function ParticleLayer({
       particles.push({ el: dot, edgeId, t: 0, speed });
     }
 
+    // Default: edges show animated dashed flow for *any* traffic. Dots only
+    // spawn for "heavy" bursts so they read as significant events, not
+    // ambient noise. Threshold is bytes-based; tune as needed.
+    const BURST_BYTES = 2000;
     const unsub = onFlow((ev) => {
       if (!runningRef.current) return;
+      if ((ev.bytes ?? 0) < BURST_BYTES) return;
       spawnOnEdge(ev.edge_id, COLORS[ev.color] || '#94a3b8', latencyToSpeed(ev.latency_ms));
     });
 

@@ -56,11 +56,12 @@ function PipeflowEdgeImpl(props: EdgeProps<PipeflowEdgeType>) {
       <BaseEdge
         id={id}
         path={path}
+        className="pipeflowEdgeFlow"
         style={{
           stroke: colorCss,
-          strokeWidth: hover ? 2.6 : dashed ? 1.2 : 1.8,
-          strokeOpacity: hover ? 1 : dashed ? 0.32 : 0.55,
-          strokeDasharray: dashed ? '4 6' : undefined,
+          strokeWidth: hover ? 2.6 : dashed ? 1.2 : 1.6,
+          strokeOpacity: hover ? 1 : dashed ? 0.38 : 0.6,
+          strokeDasharray: '6 8',
           strokeLinecap: 'round',
         }}
         {...({ 'data-pipeflow-edge-id': edgeId } as Record<string, unknown>)}

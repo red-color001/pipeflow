@@ -321,3 +321,7 @@ body {
 .userItem:hover { background: rgba(255,255,255,0.06); }
 .userItem.danger { color: #fca5a5; }
 .userItem.danger:hover { background: rgba(239,68,68,0.10); }
+
+/* ─── Edge dash flow animation ─── */
+@keyframes pipeflowDash { to { stroke-dashoffset: -28; } }
+.react-flow__edge-path.pipeflowEdgeFlow { animation: pipeflowDash 1.6s linear infinite; }
