@@ -1,0 +1,22 @@
+{
+  "name": "pipeflow",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/shared",
+    "packages/sdk-node"
+  ],
+  "scripts": {
+    "dev:server": "npm -w @pipeflow/server run dev",
+    "dev:web": "npm -w @pipeflow/web run dev",
+    "build": "npm -w @pipeflow/shared run build && npm -w @pipeflow/server run build && npm -w @pipeflow/web run build",
+    "migrate": "npm -w @pipeflow/server run migrate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

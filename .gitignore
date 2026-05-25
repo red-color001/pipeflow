@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vite/
+coverage/
+
+# cocoindex local cache
+.cocoindex_code/
+
+# Smoke probe artifacts
+probe-*.png
+probe-*.mjs
+
+# Misc local
+*.tsbuildinfo
+.idea/
+.vscode/

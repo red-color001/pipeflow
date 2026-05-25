@@ -1,0 +1,195 @@
+x-agent-base: &agent-base
+  build:
+    context: .
+    dockerfile: agents/Dockerfile
+  image: pipline-data-flow-agent
+  depends_on:
+    - server
+  restart: unless-stopped
+  environment: &agent-env
+    PIPEFLOW_BACKEND: http://server:4000
+    PIPEFLOW_TOKEN:   ${AGENT_TOKEN:-dev-token-change-me}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-pipeflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pipeflow}
+      POSTGRES_DB:       ${POSTGRES_DB:-pipeflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pipeflow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-pipeflow}:${POSTGRES_PASSWORD:-pipeflow}@postgres:5432/${POSTGRES_DB:-pipeflow}
+      AGENT_TOKEN: ${AGENT_TOKEN:-dev-token-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # ─── Agents (one container each) ─────────────────────────────
+  agent-youtube:
+    <<: *agent-base
+    container_name: agent-youtube
+    environment:
+      <<: *agent-env
+      AGENT_ID:      youtube-api
+      AGENT_LABEL:   YouTube API
+      AGENT_KIND:    ext
+      AGENT_COLOR:   orange
+      AGENT_TARGETS: '[{"to":"airflow","color":"orange"}]'
+      AGENT_FLOWS:   '[{"to":"airflow","interval_min":0.08,"interval_max":0.18,"bytes_min":800,"bytes_max":4000,"latency_min":15,"latency_max":40}]'
+
+  agent-airflow:
+    <<: *agent-base
+    container_name: agent-airflow
+    environment:
+      <<: *agent-env
+      AGENT_ID:      airflow
+      AGENT_LABEL:   Airflow
+      AGENT_KIND:    svc
+      AGENT_COLOR:   amber
+      AGENT_TARGETS: |
+        [
+          {"to":"postgres","color":"amber"},
+          {"to":"kafka-broker-0","color":"amber","label":"orchestrate"},
+          {"to":"etl-worker","color":"amber"},
+          {"to":"ml-api","color":"amber"}
+        ]
+      AGENT_FLOWS: |
+        [
+          {"to":"postgres","interval_min":0.5,"interval_max":0.9,"bytes_min":200,"bytes_max":1500,"latency_min":80,"latency_max":220},
+          {"to":"kafka-broker-0","interval_min":0.5,"interval_max":0.9,"bytes_min":200,"bytes_max":1500,"latency_min":80,"latency_max":220},
+          {"to":"etl-worker","interval_min":0.5,"interval_max":0.9,"bytes_min":200,"bytes_max":1500,"latency_min":80,"latency_max":220},
+          {"to":"ml-api","interval_min":0.5,"interval_max":0.9,"bytes_min":200,"bytes_max":1500,"latency_min":80,"latency_max":220}
+        ]
+
+  agent-postgres:
+    <<: *agent-base
+    container_name: agent-postgres
+    environment:
+      <<: *agent-env
+      AGENT_ID:    postgres
+      AGENT_LABEL: Postgres
+      AGENT_KIND:  db
+      AGENT_COLOR: teal
+
+  agent-kafka:
+    <<: *agent-base
+    container_name: agent-kafka
+    environment:
+      <<: *agent-env
+      AGENT_ID:      kafka-broker-0
+      AGENT_LABEL:   Kafka B0
+      AGENT_KIND:    kf
+      AGENT_COLOR:   red
+      AGENT_TARGETS: '[{"to":"duckdb","color":"red"}]'
+      AGENT_FLOWS:   '[{"to":"duckdb","interval_min":0.2,"interval_max":0.6,"bytes_min":500,"bytes_max":3000,"latency_min":40,"latency_max":150}]'
+
+  agent-etl:
+    <<: *agent-base
+    container_name: agent-etl
+    environment:
+      <<: *agent-env
+      AGENT_ID:      etl-worker
+      AGENT_LABEL:   ETL Worker
+      AGENT_KIND:    wk
+      AGENT_COLOR:   violet
+      AGENT_TARGETS: '[{"to":"kafka-broker-0","color":"red"}]'
+      AGENT_FLOWS:   '[{"to":"kafka-broker-0","interval_min":0.1,"interval_max":0.3,"bytes_min":500,"bytes_max":3000,"latency_min":20,"latency_max":80}]'
+
+  agent-ml:
+    <<: *agent-base
+    container_name: agent-ml
+    environment:
+      <<: *agent-env
+      AGENT_ID:      ml-api
+      AGENT_LABEL:   ML API
+      AGENT_KIND:    wk
+      AGENT_COLOR:   violet
+      AGENT_TARGETS: '[{"to":"ollama","color":"purple"}]'
+      AGENT_FLOWS:   '[{"to":"ollama","interval_min":0.6,"interval_max":1.5,"bytes_min":100,"bytes_max":800,"latency_min":100,"latency_max":400}]'
+
+  agent-ollama:
+    <<: *agent-base
+    container_name: agent-ollama
+    environment:
+      <<: *agent-env
+      AGENT_ID:      ollama
+      AGENT_LABEL:   Ollama
+      AGENT_KIND:    svc
+      AGENT_COLOR:   purple
+      AGENT_TARGETS: '[{"to":"duckdb","color":"purple"}]'
+      AGENT_FLOWS:   '[{"to":"duckdb","interval_min":0.5,"interval_max":1.0,"bytes_min":100,"bytes_max":800,"latency_min":50,"latency_max":180}]'
+
+  agent-duckdb:
+    <<: *agent-base
+    container_name: agent-duckdb
+    environment:
+      <<: *agent-env
+      AGENT_ID:    duckdb
+      AGENT_LABEL: DuckDB
+      AGENT_KIND:  db
+      AGENT_COLOR: green
+
+  agent-prometheus:
+    <<: *agent-base
+    container_name: agent-prometheus
+    environment:
+      <<: *agent-env
+      AGENT_ID:      prometheus
+      AGENT_LABEL:   Prometheus
+      AGENT_KIND:    obs
+      AGENT_COLOR:   cyan
+      AGENT_TARGETS: |
+        [
+          {"to":"airflow","color":"cyan"},
+          {"to":"kafka-broker-0","color":"cyan"}
+        ]
+      AGENT_FLOWS: |
+        [
+          {"to":"airflow","interval_min":0.25,"interval_max":0.4,"bytes_min":64,"bytes_max":256,"latency_min":5,"latency_max":15},
+          {"to":"kafka-broker-0","interval_min":0.25,"interval_max":0.4,"bytes_min":64,"bytes_max":256,"latency_min":5,"latency_max":15}
+        ]
+
+  agent-grafana:
+    <<: *agent-base
+    container_name: agent-grafana
+    environment:
+      <<: *agent-env
+      AGENT_ID:      grafana
+      AGENT_LABEL:   Grafana
+      AGENT_KIND:    obs
+      AGENT_COLOR:   cyan
+      AGENT_TARGETS: '[{"to":"prometheus","color":"cyan"}]'
+      AGENT_FLOWS:   '[{"to":"prometheus","interval_min":0.4,"interval_max":0.8,"bytes_min":32,"bytes_max":128,"latency_min":8,"latency_max":25}]'
+
+volumes:
+  pgdata:

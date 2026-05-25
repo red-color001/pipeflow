@@ -1,0 +1,184 @@
+:root {
+  --bg: #040711;
+  --bg2: #070b18;
+  --ink: #e2e8f0;
+  --ink-dim: #94a3b8;
+  --line: #1e293b;
+  --line-2: #334155;
+  --acc: #818cf8;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+/* ─── Header ─────────────────────────────────────────────────── */
+.hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(7,11,24,0.78); backdrop-filter: blur(12px);
+  z-index: 5;
+}
+.title { display: flex; align-items: center; gap: 12px; }
+.title .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--acc); box-shadow: 0 0 14px var(--acc);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.title h1 {
+  margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.02em;
+  font-family: "JetBrains Mono", monospace;
+}
+.meta {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 11.5px; font-family: "JetBrains Mono", monospace;
+}
+.kvGroup {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.kv { color: var(--ink); }
+.kv b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.kvOn, .kvOff, .kvWarn, .kvBn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.kvOn  { color: #34d399; }
+.kvWarn{ color: #fbbf24; }
+.kvOff { color: #94a3b8; }
+.kvBn  { color: #fca5a5; }
+.liveDot, .staleDot, .deadDot, .bnDot {
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.liveDot  { background: #34d399; box-shadow: 0 0 8px #34d399; animation: pulse 1.4s ease-in-out infinite; }
+.staleDot { background: #fbbf24; }
+.deadDot  { background: #64748b; }
+.bnDot    { background: #f87171; box-shadow: 0 0 8px #f87171; animation: pulse 0.9s ease-in-out infinite; }
+
+.kindChip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px;
+}
+.kindChip b { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.swatch {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+}
+
+/* ─── Custom node keyframes ──────────────────────────────────── */
+@keyframes pipeflowRadar {
+  0%, 100% { transform: scale(0.5); opacity: 0.5; }
+  50%      { transform: scale(1.3); opacity: 0;   }
+}
+@keyframes pipeflowBlink {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1;   }
+}
+
+/* ─── React Flow dark theme overrides ────────────────────────── */
+.react-flow__controls {
+  background: rgba(7,11,24,0.92) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4) !important;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid var(--line) !important;
+  color: var(--ink) !important;
+  fill: var(--ink) !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(255,255,255,0.06) !important;
+}
+.react-flow__minimap {
+  background: rgba(7,11,24,0.88) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  right: 18px !important;
+  bottom: 18px !important;
+}
+.react-flow__handle {
+  transition: width 0.12s, height 0.12s, opacity 0.12s;
+}
+.react-flow__handle:hover {
+  width: 16px !important;
+  height: 16px !important;
+  opacity: 1 !important;
+}
+.react-flow__attribution { display: none !important; }
+.react-flow__node-pipeflow.selected > div { box-shadow: 0 0 0 2px rgba(129,140,248,0.55); }
+
+/* ─── Stage ──────────────────────────────────────────────────── */
+.stage {
+  flex: 1; position: relative; overflow: hidden;
+  /* Match the SVG inner fill so viewBox letterbox padding is seamless. */
+  background:
+    radial-gradient(1400px 900px at 50% 0%, #0a1224 0%, #050810 70%);
+}
+
+.playctl {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(7,11,24,0.92); backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 5px; z-index: 4;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  font-family: "JetBrains Mono", monospace;
+}
+.playctl .pc {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; font-size: 11.5px; font-weight: 600;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--ink-dim); cursor: pointer; font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.playctl .pc:hover { background: rgba(255,255,255,0.05); color: var(--ink); }
+.playctl .pc.on   { background: rgba(52,211,153,0.12); color: #34d399; border-color: rgba(52,211,153,0.35); }
+.playctl .pc.off  { background: rgba(248,113,113,0.10); color: #f87171; border-color: rgba(248,113,113,0.3); }
+
+.zoomctl {
+  position: absolute; right: 18px; bottom: 18px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  background: rgba(7,11,24,0.88); backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px; z-index: 4;
+  font-family: "JetBrains Mono", monospace;
+}
+.zoomctl button {
+  width: 32px; height: 30px;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--ink); font: inherit; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.zoomctl button:hover { background: rgba(255,255,255,0.06); border-color: var(--line); }
+.zoomctl .z { text-align: center; font-size: 10px; color: var(--ink-dim); padding: 2px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+.panhint {
+  position: absolute; left: 18px; bottom: 18px;
+  font-size: 10.5px; color: var(--ink-dim);
+  font-family: "JetBrains Mono", monospace;
+  background: rgba(7,11,24,0.78); backdrop-filter: blur(6px);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; z-index: 4;
+  pointer-events: none; letter-spacing: 0.04em;
+  max-width: 70vw;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.panhint kbd {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--line);
+  border-radius: 3px; padding: 1px 5px; margin-right: 4px;
+  font-size: 9.5px; color: var(--ink);
+}
