@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Panel,
   type NodeChange, type EdgeChange, type Connection,
   useReactFlow, useViewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from 'dagre';
 import { useStore } from '../../store';
 import type { NodeDTO, NodeMetric } from '@pipeflow/shared';
 import { COLORS } from '../../colors';
@@ -139,6 +140,60 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 100);
   }, [rfNodes, fitView]);
 
+  // ── Auto-layout (dagre) ────────────────────────────────────────────────
+  // Re-flows all nodes into a tidy DAG with no overlap, then commits each
+  // new position to the server via node:move. Direction toggles LR/TB.
+  const [layingOut, setLayingOut] = useState(false);
+  const runAutoLayout = useCallback((rankdir: 'LR' | 'TB') => {
+    if (layingOut) return;
+    const nodes = useStore.getState().nodes;
+    const edges = useStore.getState().edges;
+    if (nodes.size === 0) return;
+    setLayingOut(true);
+
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({
+      rankdir,
+      nodesep: 60,   // gap between siblings (perpendicular to rank)
+      ranksep: 90,   // gap between ranks (along flow direction)
+      edgesep: 24,
+      marginx: 40,
+      marginy: 40,
+    });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    nodes.forEach((n) => {
+      g.setNode(n.id, { width: n.w, height: n.h });
+    });
+    edges.forEach((e) => {
+      if (nodes.has(e.from) && nodes.has(e.to)) g.setEdge(e.from, e.to);
+    });
+
+    try {
+      dagre.layout(g);
+    } catch (err) {
+      console.error('auto-layout failed:', err);
+      setLayingOut(false);
+      return;
+    }
+
+    nodes.forEach((n) => {
+      const pos = g.node(n.id);
+      if (!pos) return;
+      // dagre centers at (x,y); RF positions at top-left.
+      const x = Math.round(pos.x - n.w / 2);
+      const y = Math.round(pos.y - n.h / 2);
+      if (x === n.x && y === n.y) return;
+      useStore.getState().upsertNode({ ...n, x, y });
+      emitNodeMove(n.id, x, y);
+    });
+
+    setTimeout(() => {
+      fitView({ padding: 0.2, duration: 500 });
+      setLayingOut(false);
+    }, 80);
+  }, [fitView, layingOut]);
+
   return (
     <>
       <ReactFlow
@@ -166,6 +221,26 @@ function DiagramRFInner({ running, particleSize = 'medium' }: Props) {
       >
         <Background gap={28} color="#1e293b" />
         <Controls showInteractive={false} />
+        <Panel position="top-right">
+          <div className="autoLayoutPanel">
+            <button
+              className="autoLayoutBtn"
+              onClick={() => runAutoLayout('LR')}
+              disabled={layingOut}
+              title="Auto-layout horizontal (left → right)"
+            >
+              <span className="alIcon">⇆</span> Auto-Layout
+            </button>
+            <button
+              className="autoLayoutBtn alSecondary"
+              onClick={() => runAutoLayout('TB')}
+              disabled={layingOut}
+              title="Auto-layout vertical (top → bottom)"
+            >
+              ⇅
+            </button>
+          </div>
+        </Panel>
         <MiniMap
           nodeColor={(n) => {
             const d = (n.data as unknown as NodeDTO | undefined);

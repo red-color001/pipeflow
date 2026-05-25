@@ -65,3 +65,25 @@ export function emitEdgeDelete(id: number) {
 export function emitNodeDelete(id: string) {
   getSocket().emit('node:delete', id);
 }
+
+export async function apiPruneDead(): Promise<{ nodes: number; edges: number }> {
+  const r = await fetch(`${API}/topology/prune-dead`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (r.status === 401) { clearSession(); throw new Error('unauthorized'); }
+  if (!r.ok) throw new Error(`prune failed: ${r.status}`);
+  const j = await r.json();
+  return j.removed as { nodes: number; edges: number };
+}
+
+export async function apiResetTopology(): Promise<{ nodes: number; edges: number }> {
+  const r = await fetch(`${API}/topology/reset`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (r.status === 401) { clearSession(); throw new Error('unauthorized'); }
+  if (!r.ok) throw new Error(`reset failed: ${r.status}`);
+  const j = await r.json();
+  return j.removed as { nodes: number; edges: number };
+}

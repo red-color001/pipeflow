@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DiagramRF } from './components/rf/DiagramRF';
 import { useStore } from './store';
-import { getSocket, fetchTopology, disconnectSocket } from './socket';
+import { getSocket, fetchTopology, disconnectSocket, apiPruneDead, apiResetTopology } from './socket';
 import { COLORS } from './colors';
 import type { NodeKind } from '@pipeflow/shared';
 import { clearSession, getAuth, subscribeAuth, type AuthUser } from './auth';
@@ -45,6 +45,28 @@ function AuthedApp({ user }: { user: AuthUser }) {
   function onLogout() {
     disconnectSocket();
     clearSession();
+  }
+
+  async function onPruneDead() {
+    if (!window.confirm('Hapus semua node mati/stub?\nEdge yang terhubung ikut dihapus.')) return;
+    try {
+      const r = await apiPruneDead();
+      console.log(`pruned ${r.nodes} nodes, ${r.edges} edges`);
+    } catch (e) {
+      console.error('prune failed:', e);
+      window.alert('Gagal prune. Cek console.');
+    }
+  }
+
+  async function onFullReset() {
+    if (!window.confirm('RESET SEMUA TOPOLOGI?\nSemua node & edge dihapus (cluster tetap). Agent live akan re-register otomatis.')) return;
+    try {
+      const r = await apiResetTopology();
+      console.log(`reset: removed ${r.nodes} nodes, ${r.edges} edges`);
+    } catch (e) {
+      console.error('reset failed:', e);
+      window.alert('Gagal reset. Cek console.');
+    }
   }
 
   let live = 0, stale = 0, dead = 0;
@@ -116,6 +138,8 @@ function AuthedApp({ user }: { user: AuthUser }) {
             open={menuOpen}
             setOpen={setMenuOpen}
             onChangePassword={() => { setMenuOpen(false); setShowPw(true); }}
+            onPruneDead={() => { setMenuOpen(false); onPruneDead(); }}
+            onFullReset={() => { setMenuOpen(false); onFullReset(); }}
             onLogout={onLogout}
           />
         </div>
@@ -135,12 +159,14 @@ function AuthedApp({ user }: { user: AuthUser }) {
 }
 
 function UserMenu({
-  username, open, setOpen, onChangePassword, onLogout,
+  username, open, setOpen, onChangePassword, onPruneDead, onFullReset, onLogout,
 }: {
   username: string;
   open: boolean;
   setOpen: (v: boolean) => void;
   onChangePassword: () => void;
+  onPruneDead: () => void;
+  onFullReset: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -155,6 +181,10 @@ function UserMenu({
           <div className="userBackdrop" onClick={() => setOpen(false)} />
           <div className="userDropdown">
             <button className="userItem" onClick={onChangePassword}>Change password</button>
+            <div className="userDivider" />
+            <button className="userItem" onClick={onPruneDead}>Prune dead nodes</button>
+            <button className="userItem danger" onClick={onFullReset}>Reset topology…</button>
+            <div className="userDivider" />
             <button className="userItem danger" onClick={onLogout}>Sign out</button>
           </div>
         </>

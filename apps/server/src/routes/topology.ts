@@ -72,10 +72,38 @@ router.delete('/edges/:id', async (req, res) => {
 
 router.post('/reset', async (_req, res) => {
   // Wipe all edges + agents (keep clusters seeded).
+  const nodes = await query<{ id: string }>(`SELECT id FROM agents`);
+  const edges = await query<{ id: number }>(`SELECT id FROM edges`);
   await query(`DELETE FROM edges`);
   await query(`DELETE FROM agents`);
   await query(`DELETE FROM edge_suppressions`);
-  res.json({ ok: true });
+  for (const e of edges) emit('edge:removed', e.id);
+  for (const n of nodes) emit('node:removed', n.id);
+  res.json({ ok: true, removed: { nodes: nodes.length, edges: edges.length } });
+});
+
+// Prune all "dead" nodes (stub OR last_seen older than threshold). Real, live
+// agents keep their node + position. Attached edges go with them.
+router.post('/prune-dead', async (_req, res) => {
+  const stale = await query<{ id: string }>(
+    `SELECT id FROM agents
+      WHERE stub = true
+         OR last_seen_at < now() - interval '45 seconds'`
+  );
+  if (stale.length === 0) {
+    res.json({ ok: true, removed: { nodes: 0, edges: 0 } });
+    return;
+  }
+  const ids = stale.map((r) => r.id);
+  const edges = await query<{ id: number }>(
+    `SELECT id FROM edges WHERE from_agent = ANY($1) OR to_agent = ANY($1)`,
+    [ids]
+  );
+  await query(`DELETE FROM edges WHERE from_agent = ANY($1) OR to_agent = ANY($1)`, [ids]);
+  await query(`DELETE FROM agents WHERE id = ANY($1)`, [ids]);
+  for (const e of edges) emit('edge:removed', e.id);
+  for (const n of stale) emit('node:removed', n.id);
+  res.json({ ok: true, removed: { nodes: stale.length, edges: edges.length } });
 });
 
 export default router;
