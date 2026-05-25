@@ -24,3 +24,7 @@ probe-*.mjs
 *.tsbuildinfo
 .idea/
 .vscode/
+
+# Local mockup/prototype dir (not part of shipped app)
+mockup/
+mockup/
