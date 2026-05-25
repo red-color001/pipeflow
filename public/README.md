@@ -10,6 +10,8 @@ file, register a service, and verify the agent is live with the backend.
 
 ## Linux (systemd)
 
+Minimal — agent registers as an isolated node (no outgoing edges):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/red-color001/pipeflow/main/agents/install.sh \
   | sudo bash -s -- \
@@ -21,8 +23,32 @@ curl -fsSL https://raw.githubusercontent.com/red-color001/pipeflow/main/agents/i
       --color   indigo
 ```
 
-Omit the flags to be prompted interactively. Supported arches:
-`linux-x64`, `linux-arm64`.
+With **outgoing edges** to other agents (typical case — declare what this
+service talks to). Edges auto-create on register; the target agent IDs do
+NOT need to exist yet (they will appear as `STUB` nodes until their own
+agent registers):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/red-color001/pipeflow/main/agents/install.sh \
+  | sudo bash -s -- \
+      --backend https://pipeflow.example.com \
+      --token   YOUR_AGENT_TOKEN \
+      --id      myservice-prod \
+      --label   "My Service" \
+      --kind    svc \
+      --color   indigo \
+      --targets '[{"to":"postgres","color":"teal"},{"to":"kafka-broker-0","color":"red","label":"events"}]' \
+      --flows   '[{"to":"postgres","interval_min":0.4,"interval_max":0.9,"bytes_min":200,"bytes_max":1500,"latency_min":30,"latency_max":120}]'
+```
+
+- `--targets` (JSON array) — declared outgoing edges. Each item: `{"to": "<agent_id>", "color"?: "<color>", "label"?: "<text>", "dashed"?: bool}`. Required for any agent that should appear connected to others.
+- `--flows` (JSON array, optional) — synthetic traffic pattern used when this agent has no real instrumentation. Each item is a Poisson-ish loop emitting flow events. Omit if your code already calls `agent.flow()` from real request paths.
+
+Omit the flags to be prompted interactively (interactive prompts cover the
+basic fields only — `--targets` / `--flows` are non-interactive JSON and
+must be passed on the command line if you want them).
+
+Supported arches: `linux-x64`, `linux-arm64`.
 
 ### What it does
 
@@ -62,7 +88,10 @@ $flags = @(
   '-Token','YOUR_AGENT_TOKEN',
   '-Id','myservice-prod',
   '-Label','My Service',
-  '-Kind','svc','-Color','indigo'
+  '-Kind','svc','-Color','indigo',
+  # Outgoing edges (optional). JSON string — single-quote in PowerShell.
+  '-Targets','[{"to":"postgres","color":"teal"},{"to":"kafka-broker-0","color":"red","label":"events"}]',
+  '-Flows','[{"to":"postgres","interval_min":0.4,"interval_max":0.9,"bytes_min":200,"bytes_max":1500}]'
 )
 $installer = "$env:TEMP\pipeflow-install.ps1"
 Invoke-WebRequest -UseBasicParsing `
@@ -124,6 +153,38 @@ EOF
 
 Intel Macs are not built in CI — build locally with
 `pyinstaller agents/pyinstaller.spec`.
+
+---
+
+## Declaring connections (who talks to whom)
+
+The diagram is a **graph**. Each agent declares its **outgoing edges** via
+`--targets`. The backend uses that list to draw arrows from this agent to
+the named target IDs.
+
+- A target only needs to exist as a string — the agent on the other end
+  does not have to be installed yet. The backend auto-creates a
+  placeholder (`STUB` node, dashed border) so the edge can still render.
+  When the real agent later registers with that same `--id`, the stub is
+  promoted to a live node, position preserved.
+- IDs are case-sensitive. `postgres` and `Postgres` are different agents.
+- Re-running the installer with the same `--id` updates the agent's
+  declared targets in place. Removed targets stay in the DB until you
+  prune them from the UI (`User menu → Prune dead nodes`).
+- If you previously **deleted** an auto-edge from the UI, the backend
+  records a suppression and won't recreate it on next register. To allow
+  it again, run `Prune dead nodes` or `Reset topology` from the UI.
+
+### Synthetic traffic (`--flows`)
+
+`--flows` is only useful for demos / staging where you want particles
+animating along the declared edges without wiring real telemetry. Each
+flow item starts a background loop that POSTs `/agents/<id>/flow` at a
+random interval inside `[interval_min, interval_max]` seconds with a
+random `bytes` payload inside `[bytes_min, bytes_max]`. Skip this entirely
+for production — instead call `agent.flow(to=..., bytes_=..., latency_ms=...)`
+from your real request handlers (or use `agent.instrument_requests()` in
+the Python SDK to auto-emit on every outbound HTTP call).
 
 ---
 
