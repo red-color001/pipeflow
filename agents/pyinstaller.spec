@@ -27,7 +27,10 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=['tkinter', 'unittest', 'test', 'distutils'],
+    # NOTE: do NOT exclude 'distutils' — Python 3.12+ ships a setuptools shim
+    # (_distutils_hack) that auto-imports it; excluding triggers
+    # "Target module 'distutils' already imported as ExcludedModule" at build.
+    excludes=['tkinter', 'unittest', 'test'],
     noarchive=False,
 )
 
