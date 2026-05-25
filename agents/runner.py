@@ -21,6 +21,7 @@ Optional env:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import random
@@ -29,6 +30,20 @@ import threading
 import time
 
 from pipeflow_agent import Agent
+
+
+def load_config_file(path: str) -> None:
+    """Load KEY=VALUE lines from a .env-style file into os.environ.
+
+    Existing env vars take precedence (setdefault) so CLI/shell overrides win.
+    """
+    with open(path, encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
 
 
 def env(name: str, default: str | None = None) -> str:
@@ -49,6 +64,13 @@ def env_json(name: str, default):
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Pipeflow agent runner")
+    parser.add_argument("--config", help="path to .env-style config file")
+    args = parser.parse_args()
+
+    if args.config:
+        load_config_file(args.config)
+
     agent = Agent(
         backend=env("PIPEFLOW_BACKEND"),
         token=env("PIPEFLOW_TOKEN"),

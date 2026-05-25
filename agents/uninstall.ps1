@@ -1,19 +1,19 @@
-# Pipeflow agent uninstaller for Windows.
-# Removes container or NSSM service for a given agent id, plus its env file.
+﻿# Pipeflow agent uninstaller for Windows (binary edition).
+# Stops + removes the NSSM service for the given agent id, removes its
+# config file. Optionally deregisters at the backend or purges shared bits.
 #
 # Usage (PowerShell as Administrator):
 #   .\uninstall.ps1 -Id myservice-prod
-#   .\uninstall.ps1 -Id myservice-prod -Deregister -Backend https://... -Token ...
+#   .\uninstall.ps1 -Id myservice-prod -Deregister
 #   .\uninstall.ps1 -Id myservice-prod -Purge
 
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][string]$Id,
-  [ValidateSet('auto','docker','nssm')]
-  [string]$Method = 'auto',
   [string]$Backend,
   [string]$Token,
-  [string]$InstallDir  = 'C:\ProgramData\pipeflow',
+  [string]$InstallDir  = 'C:\Program Files\Pipeflow',
+  [string]$ConfigDir   = 'C:\ProgramData\Pipeflow',
   [string]$ServiceName = 'PipeflowAgent',
   [switch]$Deregister,
   [switch]$Purge
@@ -26,35 +26,26 @@ function Warn { param($m) Write-Host "[pipeflow] $m" -ForegroundColor Yellow }
 function Die  { param($m) Write-Host "[pipeflow] $m" -ForegroundColor Red; exit 1 }
 
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($me)
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+if (-not (New-Object Security.Principal.WindowsPrincipal($me)).IsInRole(
+        [Security.Principal.WindowsBuiltinRole]::Administrator)) {
   Die "must run as Administrator"
 }
 
-$envFile  = "C:\ProgramData\pipeflow\env\$Id.env"
-$container = "pipeflow-$Id"
-$svc      = "$ServiceName-$Id"
-
-# Auto-detect.
-if ($Method -eq 'auto') {
-  if (Get-Command docker -ErrorAction SilentlyContinue) {
-    $found = docker ps -a --format '{{.Names}}' 2>$null | Select-String -SimpleMatch -Pattern $container
-    if ($found) { $Method = 'docker' }
-  }
-  if ($Method -eq 'auto' -and (Get-Command nssm -ErrorAction SilentlyContinue)) {
-    & nssm status $svc 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { $Method = 'nssm' }
-  }
-  if ($Method -eq 'auto') { Die "could not detect existing install for '$Id' — pass -Method explicitly" }
-  Log "detected method: $Method"
+$configFile = Join-Path $ConfigDir "$Id.env"
+$svc        = "$ServiceName-$Id"
+$binPath    = Join-Path $InstallDir 'pipeflow-agent.exe'
+$nssm       = Join-Path $InstallDir 'nssm\nssm.exe'
+if (-not (Test-Path $nssm)) {
+  $cmd = Get-Command nssm -ErrorAction SilentlyContinue
+  if ($cmd) { $nssm = $cmd.Source } else { $nssm = $null }
 }
 
-# Optional: deregister.
+# Optional deregister.
 if ($Deregister) {
   if (-not $Backend -or -not $Token) {
-    if (Test-Path $envFile) {
-      Log "loading backend/token from $envFile"
-      Get-Content $envFile | ForEach-Object {
+    if (Test-Path $configFile) {
+      Log "loading backend/token from $configFile"
+      Get-Content $configFile | ForEach-Object {
         if ($_ -match '^PIPEFLOW_BACKEND=(.+)$' -and -not $Backend) { $Backend = $matches[1] }
         if ($_ -match '^PIPEFLOW_TOKEN=(.+)$'   -and -not $Token)   { $Token   = $matches[1] }
       }
@@ -63,44 +54,54 @@ if ($Deregister) {
   if ($Backend -and $Token) {
     Log "deregistering '$Id' at backend"
     try {
-      Invoke-RestMethod -Method Post -Uri "$($Backend.TrimEnd('/'))/agents/$Id/deregister" `
+      Invoke-RestMethod -Method Post `
+        -Uri "$($Backend.TrimEnd('/'))/agents/$Id/deregister" `
         -Headers @{ Authorization = "Bearer $Token" } -TimeoutSec 5
     } catch { Warn "deregister request failed: $_" }
   } else {
-    Warn "skipping deregister: backend/token not provided"
+    Warn "skipping deregister: backend/token unavailable"
   }
 }
 
-switch ($Method) {
-  'docker' {
-    $found = docker ps -a --format '{{.Names}}' 2>$null | Select-String -SimpleMatch -Pattern $container
-    if ($found) {
-      Log "stopping + removing container $container"
-      docker rm -f $container | Out-Null
-    } else {
-      Warn "no container named $container"
-    }
+if ($nssm -and (Test-Path $nssm)) {
+  $exists = $false
+  $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try {
+    $null = & $nssm status $svc 2>&1
+    if ($LASTEXITCODE -eq 0) { $exists = $true }
+  } finally { $ErrorActionPreference = $prev }
+  if ($exists) {
+    Log "stopping + removing service $svc"
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+      & $nssm stop   $svc confirm 2>&1 | Out-Null
+      & $nssm remove $svc confirm 2>&1 | Out-Null
+    } finally { $ErrorActionPreference = $prev }
+  } else {
+    Warn "no service $svc found"
   }
-  'nssm' {
-    & nssm status $svc 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-      Log "stopping + removing service $svc"
-      & nssm stop   $svc confirm | Out-Null
-      & nssm remove $svc confirm | Out-Null
-    } else {
-      Warn "no service $svc"
-    }
-  }
+} else {
+  Warn "nssm.exe not found — skipping service removal (orphan service may remain)"
 }
 
-if (Test-Path $envFile) {
-  Log "removing env file $envFile"
-  Remove-Item $envFile -Force
+if (Test-Path $configFile) {
+  Log "removing config $configFile"
+  Remove-Item $configFile -Force
 }
 
-if ($Purge -and (Test-Path $InstallDir)) {
-  Log "purging $InstallDir (affects ALL agents on this host)"
-  Remove-Item $InstallDir -Recurse -Force
+if ($Purge) {
+  $remaining = (Get-ChildItem $ConfigDir -Filter '*.env' -ErrorAction SilentlyContinue).Count
+  if ($remaining -eq 0) {
+    if (Test-Path $binPath) { Log "removing binary $binPath"; Remove-Item $binPath -Force }
+    $logsDir = Join-Path $InstallDir 'logs'
+    if (Test-Path $logsDir) { Remove-Item $logsDir -Recurse -Force }
+    $nssmDir = Join-Path $InstallDir 'nssm'
+    if (Test-Path $nssmDir) { Remove-Item $nssmDir -Recurse -Force }
+    if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $ConfigDir)  { Remove-Item $ConfigDir  -Recurse -Force -ErrorAction SilentlyContinue }
+  } else {
+    Warn "purge requested but $remaining other agent(s) still configured -- keeping binary + nssm"
+  }
 }
 
 Log "agent '$Id' uninstalled"
