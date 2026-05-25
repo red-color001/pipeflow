@@ -27,10 +27,6 @@ jobs:
             runs-on: windows-latest
             artifact_name: pipeflow-agent-windows-x64.exe
             binary_ext: '.exe'
-          - target: macos-x64
-            runs-on: macos-13
-            artifact_name: pipeflow-agent-macos-x64
-            binary_ext: ''
           - target: macos-arm64
             runs-on: macos-14
             artifact_name: pipeflow-agent-macos-arm64
