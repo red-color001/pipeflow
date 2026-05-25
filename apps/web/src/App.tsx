@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DiagramRF } from './components/rf/DiagramRF';
 import { useStore } from './store';
-import { getSocket, fetchTopology } from './socket';
+import { getSocket, fetchTopology, disconnectSocket } from './socket';
 import { COLORS } from './colors';
 import type { NodeKind } from '@pipeflow/shared';
+import { clearSession, getAuth, subscribeAuth, type AuthUser } from './auth';
+import { Login } from './components/Login';
+import { ChangePassword } from './components/ChangePassword';
 
 const KIND_LABEL: Record<NodeKind, string> = {
   user: 'user',
@@ -18,16 +21,31 @@ const KIND_LABEL: Record<NodeKind, string> = {
 };
 
 export function App() {
+  const [auth, setAuth] = useState(() => getAuth());
+  useEffect(() => subscribeAuth(setAuth), []);
+  if (!auth.token || !auth.user) return <Login />;
+  return <AuthedApp user={auth.user} />;
+}
+
+function AuthedApp({ user }: { user: AuthUser }) {
   const nodes = useStore((s) => s.nodes);
   const edges = useStore((s) => s.edges);
   const metrics = useStore((s) => s.metrics);
 
   const [running, setRunning] = useState(true);
+  const [showPw, setShowPw] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchTopology().catch((e) => console.error('topology load failed:', e));
     getSocket();
-  }, []);
+    return () => { disconnectSocket(); };
+  }, [user.id]);
+
+  function onLogout() {
+    disconnectSocket();
+    clearSession();
+  }
 
   let live = 0, stale = 0, dead = 0;
   nodes.forEach((n) => {
@@ -93,6 +111,13 @@ export function App() {
               ))}
             </Group>
           )}
+          <UserMenu
+            username={user.username}
+            open={menuOpen}
+            setOpen={setMenuOpen}
+            onChangePassword={() => { setMenuOpen(false); setShowPw(true); }}
+            onLogout={onLogout}
+          />
         </div>
       </header>
 
@@ -101,6 +126,39 @@ export function App() {
         <PlaybackToggle running={running} setRunning={setRunning}/>
         {nodes.size === 0 && <EmptyState/>}
       </main>
+
+      {(showPw || user.must_change) && (
+        <ChangePassword forced={user.must_change} onClose={() => setShowPw(false)} />
+      )}
+    </div>
+  );
+}
+
+function UserMenu({
+  username, open, setOpen, onChangePassword, onLogout,
+}: {
+  username: string;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onChangePassword: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="userMenu">
+      <button className="userBtn" onClick={() => setOpen(!open)} title={username}>
+        <span className="userAvatar">{username.slice(0, 1).toUpperCase()}</span>
+        <span className="userName">{username}</span>
+        <span className="userCaret">▾</span>
+      </button>
+      {open && (
+        <>
+          <div className="userBackdrop" onClick={() => setOpen(false)} />
+          <div className="userDropdown">
+            <button className="userItem" onClick={onChangePassword}>Change password</button>
+            <button className="userItem danger" onClick={onLogout}>Sign out</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

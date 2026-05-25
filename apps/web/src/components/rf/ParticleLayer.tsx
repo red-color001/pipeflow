@@ -59,7 +59,7 @@ export function ParticleLayer({
       FREE.push(el);
     }
 
-    interface P { el: SVGCircleElement; edgeId: number; t: number; }
+    interface P { el: SVGCircleElement; edgeId: number; t: number; speed: number; }
     const particles: P[] = [];
     const MAX_PARTICLES = 400;
 
@@ -68,7 +68,16 @@ export function ParticleLayer({
       return k === 'small' ? 2.5 : k === 'large' ? 7 : 4;
     }
 
-    function spawnOnEdge(edgeId: number, color: string) {
+    // Map event latency_ms → per-particle speed multiplier.
+    // 100ms = 1x (baseline). Higher latency → slower dot. Clamp keeps extremes sane.
+    const REF_LATENCY_MS = 100;
+    function latencyToSpeed(latency_ms?: number): number {
+      if (!latency_ms || latency_ms <= 0) return 1;
+      const k = REF_LATENCY_MS / latency_ms;
+      return Math.max(0.25, Math.min(4, k));
+    }
+
+    function spawnOnEdge(edgeId: number, color: string, speed: number) {
       const ref = resolveEdge(edgeId);
       if (!ref) return;
       if (particles.length >= MAX_PARTICLES) return;
@@ -79,12 +88,12 @@ export function ParticleLayer({
       const pt = ref.el.getPointAtLength(0);
       dot.setAttribute('cx', String(pt.x));
       dot.setAttribute('cy', String(pt.y));
-      particles.push({ el: dot, edgeId, t: 0 });
+      particles.push({ el: dot, edgeId, t: 0, speed });
     }
 
     const unsub = onFlow((ev) => {
       if (!runningRef.current) return;
-      spawnOnEdge(ev.edge_id, COLORS[ev.color] || '#94a3b8');
+      spawnOnEdge(ev.edge_id, COLORS[ev.color] || '#94a3b8', latencyToSpeed(ev.latency_ms));
     });
 
     let prev = performance.now();
@@ -105,7 +114,7 @@ export function ParticleLayer({
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         if (!isRunning) continue;
-        p.t += BASE * dt;
+        p.t += BASE * p.speed * dt;
         p.el.setAttribute('r', String(R));
         if (p.t >= 1) {
           releaseDot(p.el);

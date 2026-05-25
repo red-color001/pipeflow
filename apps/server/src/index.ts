@@ -6,12 +6,14 @@ import { Server } from 'socket.io';
 import agentsRouter from './routes/agents.js';
 import topologyRouter from './routes/topology.js';
 import layoutsRouter from './routes/layouts.js';
+import authRouter from './routes/auth.js';
 import { setIO } from './bus.js';
 import { startLivenessLoop } from './liveness.js';
 import { startMetricsLoop } from './metrics.js';
 import { seedClusters } from './seed/clusters.js';
 import { query, one } from './db.js';
 import { toNodeDTO } from './repo.js';
+import { bootstrapDefaultAdmin, requireUser, verifySocketToken } from './auth.js';
 import type { ServerToClientEvents, ClientToServerEvents } from '@pipeflow/shared';
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -27,9 +29,12 @@ app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json({ limit: '256kb' }));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
+app.use('/auth', authRouter);
+// agents/* uses its own AGENT_TOKEN (not user JWT) — agents are machines, not users.
 app.use('/agents', agentsRouter);
-app.use('/topology', topologyRouter);
-app.use('/layouts', layoutsRouter);
+// User-facing routes require a logged-in user.
+app.use('/topology', requireUser, topologyRouter);
+app.use('/layouts', requireUser, layoutsRouter);
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
@@ -38,6 +43,13 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 setIO(io);
 
 const diagram = io.of('/diagram');
+diagram.use((socket, next) => {
+  const tok = (socket.handshake.auth as any)?.token ?? (socket.handshake.query as any)?.token;
+  const payload = verifySocketToken(tok);
+  if (!payload) return next(new Error('unauthorized'));
+  (socket.data as any).user = payload;
+  next();
+});
 diagram.on('connection', (socket) => {
   socket.on('node:move', async ({ id, x, y }) => {
     await query(`UPDATE agents SET x = $2, y = $3 WHERE id = $1`, [id, x, y]);
@@ -80,6 +92,7 @@ diagram.on('connection', (socket) => {
 
 httpServer.listen(PORT, async () => {
   console.log(`pipeflow-server listening on :${PORT}`);
+  await bootstrapDefaultAdmin().catch((e) => console.error('bootstrapDefaultAdmin failed:', e));
   await seedClusters().catch((e) => console.error('seedClusters failed:', e));
   startLivenessLoop();
   startMetricsLoop();

@@ -182,3 +182,142 @@ body {
   border-radius: 3px; padding: 1px 5px; margin-right: 4px;
   font-size: 9.5px; color: var(--ink);
 }
+
+/* ─── Auth: login + change-password modal + user menu ─── */
+.loginShell {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(1200px 600px at 50% 30%, rgba(99,102,241,0.10), transparent 70%),
+    var(--bg, #070b18);
+  z-index: 50;
+}
+.loginCard {
+  width: 340px; padding: 28px 26px 22px;
+  background: rgba(15,21,38,0.88);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+  display: flex; flex-direction: column; gap: 14px;
+  font-family: "JetBrains Mono", monospace;
+}
+.loginTitle { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.loginTitle h2 { margin: 0; font-size: 16px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); }
+.loginDot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #818cf8; box-shadow: 0 0 12px #818cf8;
+}
+.loginField { display: flex; flex-direction: column; gap: 6px; }
+.loginField > span {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.loginField input {
+  background: rgba(7,11,24,0.6);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 11px;
+  color: var(--ink); font-size: 13px;
+  font-family: "JetBrains Mono", monospace;
+  outline: none; transition: border-color 0.15s;
+}
+.loginField input:focus { border-color: #6366f1; }
+.loginErr {
+  font-size: 11px; color: #fca5a5;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 6px; padding: 6px 9px;
+}
+.loginBtn {
+  margin-top: 4px;
+  background: linear-gradient(180deg, #6366f1, #4f46e5);
+  border: 1px solid #6366f1;
+  color: white; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 10px 14px; border-radius: 6px; cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+}
+.loginBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.loginHint { font-size: 10.5px; color: var(--ink-dim); text-align: center; margin-top: 2px; }
+.loginHint code { color: #a5b4fc; }
+
+.modalBackdrop {
+  position: fixed; inset: 0;
+  background: rgba(3,6,15,0.65); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 60;
+}
+.modalCard {
+  width: 360px; padding: 22px 24px 18px;
+  background: rgba(15,21,38,0.95);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column; gap: 12px;
+  font-family: "JetBrains Mono", monospace;
+}
+.modalHeader { display: flex; align-items: center; justify-content: space-between; }
+.modalHeader h3 { margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+.modalX {
+  background: transparent; border: none; color: var(--ink-dim);
+  font-size: 20px; cursor: pointer; padding: 0 4px;
+}
+.modalX:hover { color: var(--ink); }
+.modalNote {
+  font-size: 11px; color: #fcd34d;
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.25);
+  border-radius: 6px; padding: 8px 10px;
+  line-height: 1.5;
+}
+.modalRow { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.modalBtn {
+  background: linear-gradient(180deg, #6366f1, #4f46e5);
+  border: 1px solid #6366f1; color: white;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 8px 14px; border-radius: 6px; cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+}
+.modalBtn.ghost {
+  background: transparent; color: var(--ink-dim);
+  border-color: var(--line);
+}
+.modalBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.userMenu { position: relative; display: inline-flex; }
+.userBtn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line);
+  color: var(--ink); padding: 4px 8px 4px 4px;
+  border-radius: 999px; cursor: pointer;
+  font-family: "JetBrains Mono", monospace; font-size: 11px;
+}
+.userBtn:hover { background: rgba(255,255,255,0.07); }
+.userAvatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white; font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.userName { letter-spacing: 0.04em; }
+.userCaret { color: var(--ink-dim); font-size: 9px; }
+.userBackdrop { position: fixed; inset: 0; z-index: 30; }
+.userDropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  min-width: 170px;
+  background: rgba(15,21,38,0.96);
+  border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+  z-index: 31; display: flex; flex-direction: column;
+}
+.userItem {
+  background: transparent; border: none; text-align: left;
+  color: var(--ink); padding: 7px 10px; border-radius: 4px;
+  font-family: "JetBrains Mono", monospace; font-size: 11px;
+  cursor: pointer;
+}
+.userItem:hover { background: rgba(255,255,255,0.06); }
+.userItem.danger { color: #fca5a5; }
+.userItem.danger:hover { background: rgba(239,68,68,0.10); }
